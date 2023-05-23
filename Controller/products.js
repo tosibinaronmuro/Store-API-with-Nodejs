@@ -5,7 +5,7 @@ const getAllProductsStatic = async (req, res) => {
   res.status(200).json({ products, nbHits: products.length });
 };
 const getAllProducts = async (req, res) => {
-  const { featured, company, name, sort,keys,greaterThanFilters,lessThanFilters } = req.query;
+  const { featured, company, name, sort,keys,numericFilters ,greaterThanFilters,lessThanFilters } = req.query;
   //   search query
   const queryObj = {};
   if (featured) {
@@ -17,7 +17,27 @@ const getAllProducts = async (req, res) => {
   if (name) {
     queryObj.name = { $regex: name, $options: "i" };
   }
-
+  if(numericFilters){
+    const operatorMap={
+      '>':"$gt",
+      '<':"$lt",
+      '>=':"$gte",
+      '<=':"$lte",
+      '=':'$eq ',
+    }
+  
+    const regEx=/\b(<|>|>=|=|<=)\b/g
+    let filters=numericFilters.replace(regEx,(match)=>`-${operatorMap[match]}-`)
+    const options=['price','rating' ]
+    filters=filters.split(',').forEach((item)=>{
+      const [field,operator,value]=item.split('-')
+      if(options.includes(field)){
+  queryObj[field]={[operator]:Number(value)}
+      }
+    })
+    console.log(queryObj)
+  
+  }
   let result = Products.find(queryObj);
   if (sort) {
     const sortList = sort.split(",").join(' ');
@@ -38,13 +58,14 @@ const getAllProducts = async (req, res) => {
     
  result=result.skip(skip).limit(limit)
 
-
+console.log(req.query)
  if(greaterThanFilters){
   result=result.where({ price: { $gt:greaterThanFilters}});
 }
  if(lessThanFilters){
   result=result.where({ price: { $lt:lessThanFilters}});
 }
+
 
   const products = await result;
   res.status(200).json({ products, nbHits: products.length });
